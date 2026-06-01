@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\File;
 
 class ProdukController extends Controller
 {
-    // 1. CREATE: Tambah Produk Baru (Wajib ada kategori_id)
+    // 1. CREATE produk baru
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -18,24 +18,18 @@ class ProdukController extends Controller
             'nama_produk'   => 'required|string|max:255',
             'deskripsi'     => 'required|string',
             'harga'         => 'required|integer|min:0',
+            'harga_diskon'  => 'nullable|integer|min:0|lt:harga', // Harus lebih kecil dari harga asli
             'stok'          => 'required|integer|min:0',
             'gambar_produk' => 'required|image|mimes:jpeg,png,jpg|max:2048'
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi produk gagal',
-                'errors'  => $validator->errors()
-            ], 422);
+            return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
         }
 
         $toko = Toko::where('user_id', $request->user()->_id)->first();
         if (!$toko) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Akses ditolak: Anda harus mendirikan toko terlebih dahulu'
-            ], 403);
+            return response()->json(['status' => false, 'message' => 'Setup toko dahulu'], 403);
         }
 
         if ($request->hasFile('gambar_produk')) {
@@ -51,18 +45,15 @@ class ProdukController extends Controller
             'nama_produk'   => $request->nama_produk,
             'deskripsi'     => $request->deskripsi,
             'harga'         => (int) $request->harga,
+            'harga_diskon'  => $request->filled('harga_diskon') ? (int) $request->harga_diskon : null,
             'stok'          => (int) $request->stok,
             'gambar_produk' => $gambarPath
         ]);
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Produk berhasil ditambahkan',
-            'data'    => $produk
-        ], 201);
+        return response()->json(['status' => true, 'message' => 'Produk berhasil ditambahkan', 'data' => $produk], 201);
     }
 
-    // 2. READ (ALL): Ambil Semua Produk Khusus Toko Tenant (Bisa filter via Kategori)
+    // 2. READ ALL produk tenant
     public function index(Request $request)
     {
         $toko = Toko::where('user_id', $request->user()->_id)->first();
@@ -70,71 +61,45 @@ class ProdukController extends Controller
             return response()->json(['status' => false, 'message' => 'Toko tidak ditemukan'], 404);
         }
 
-        // Mulai query pencarian produk berdasarkan toko_id
         $query = Produk::where('toko_id', $toko->_id);
-
-        // Fitur opsional buat FE: jika mereka kirim parameter ?kategori_id=xxx
         if ($request->has('kategori_id')) {
             $query->where('kategori_id', $request->kategori_id);
         }
 
-        $produk = $query->get();
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Daftar produk berhasil diambil',
-            'data'    => $produk
-        ], 200);
+        return response()->json(['status' => true, 'data' => $query->get()], 200);
     }
 
-    // 3. READ (SINGLE): Ambil Detail Satu Produk
-    public function show(Request $request, $id)
+    // 3. DETAIL single produk
+    public function show($id)
     {
         $produk = Produk::find($id);
-        if (!$produk) {
-            return response()->json(['status' => false, 'message' => 'Produk tidak ditemukan'], 404);
-        }
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Detail produk berhasil diambil',
-            'data'    => $produk
-        ], 200);
+        if (!$produk) return response()->json(['status' => false, 'message' => 'Produk tidak ditemukan'], 404);
+        return response()->json(['status' => true, 'data' => $produk], 200);
     }
 
-    // 4. UPDATE: Ubah Data Produk (Sinkron dengan kategori_id baru)
+    // 4. UPDATE produk tenant
     public function update(Request $request, $id)
     {
         $produk = Produk::find($id);
-        if (!$produk) {
-            return response()->json(['status' => false, 'message' => 'Produk tidak ditemukan'], 404);
-        }
+        if (!$produk) return response()->json(['status' => false, 'message' => 'Produk tidak ditemukan'], 404);
 
         $validator = Validator::make($request->all(), [
             'kategori_id'   => 'required|string',
             'nama_produk'   => 'required|string|max:255',
             'deskripsi'     => 'required|string',
             'harga'         => 'required|integer|min:0',
+            'harga_diskon'  => 'nullable|integer|min:0|lt:harga',
             'stok'          => 'required|integer|min:0',
             'gambar_produk' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validasi ubah produk gagal',
-                'errors'  => $validator->errors()
-            ], 422);
+            return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
         }
 
         $gambarPath = $produk->gambar_produk;
-
-        // Jika tenant ganti foto produk, hapus foto lama biar local storage ga bengkak
         if ($request->hasFile('gambar_produk')) {
-            if (File::exists(public_path($produk->gambar_produk))) {
-                File::delete(public_path($produk->gambar_produk));
-            }
-
+            if (File::exists(public_path($produk->gambar_produk))) File::delete(public_path($produk->gambar_produk));
             $file = $request->file('gambar_produk');
             $filename = time() . '_' . $file->getClientOriginalName();
             $file->move(public_path('uploads/produk'), $filename);
@@ -146,34 +111,21 @@ class ProdukController extends Controller
             'nama_produk'   => $request->nama_produk,
             'deskripsi'     => $request->deskripsi,
             'harga'         => (int) $request->harga,
+            'harga_diskon'  => $request->filled('harga_diskon') ? (int) $request->harga_diskon : null,
             'stok'          => (int) $request->stok,
             'gambar_produk' => $gambarPath
         ]);
 
-        return response()->json([
-            'status'  => true,
-            'message' => 'Produk berhasil diperbarui',
-            'data'    => $produk
-        ], 200);
+        return response()->json(['status' => true, 'message' => 'Produk berhasil diperbarui', 'data' => $produk], 200);
     }
 
-    // 5. DELETE: Hapus Produk Beserta File Fisiknya
+    // 5. DELETE produk
     public function destroy($id)
     {
         $produk = Produk::find($id);
-        if (!$produk) {
-            return response()->json(['status' => false, 'message' => 'Produk tidak ditemukan'], 404);
-        }
-
-        if (File::exists(public_path($produk->gambar_produk))) {
-            File::delete(public_path($produk->gambar_produk));
-        }
-
+        if (!$produk) return response()->json(['status' => false, 'message' => 'Produk tidak ditemukan'], 404);
+        if (File::exists(public_path($produk->gambar_produk))) File::delete(public_path($produk->gambar_produk));
         $produk->delete();
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Produk berhasil dihapus'
-        ], 200);
+        return response()->json(['status' => true, 'message' => 'Produk berhasil dihapus'], 200);
     }
 }
