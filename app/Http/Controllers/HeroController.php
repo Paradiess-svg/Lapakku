@@ -9,6 +9,18 @@ use Illuminate\Support\Facades\Validator;
 
 class HeroController extends Controller
 {
+    public function index(Request $request)
+    {
+        $toko = Toko::where('user_id', $request->user()->_id)->first();
+
+        if (!$toko) {
+            return response()->json(['status' => false, 'message' => 'Setup toko dahulu'], 404);
+        }
+
+        $hero = Hero::where('toko_id', $toko->_id)->get();
+        return response()->json(['status' => true, 'data' => $hero], 200);
+    }
+
     // Tenant: Tambah Banner Slider Baru
     public function store(Request $request)
     {

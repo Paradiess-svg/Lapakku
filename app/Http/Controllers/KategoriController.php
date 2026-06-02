@@ -10,6 +10,18 @@ use Illuminate\Support\Facades\File;
 
 class KategoriController extends Controller
 {
+    public function index(Request $request)
+    {
+        $toko = Toko::where('user_id', $request->user()->_id)->first();
+
+        if (!$toko) {
+            return response()->json(['status' => false, 'message' => 'Setup toko dahulu'], 404);
+        }
+
+        $kategori = Kategori::where('toko_id', $toko->_id)->get();
+        return response()->json(['status' => true, 'data' => $kategori], 200);
+    }
+
     // Tenant: Tambah Kategori Baru
     public function store(Request $request)
     {

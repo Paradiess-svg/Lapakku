@@ -8,6 +8,23 @@ use Illuminate\Support\Facades\Validator;
 
 class TokoController extends Controller
 {
+    public function me(Request $request)
+    {
+        $toko = Toko::where('user_id', $request->user()->_id)->first();
+
+        if (!$toko) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Toko tidak ditemukan'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'data'   => $toko
+        ], 200);
+    }
+
     // STEP 1: Pengisian Profil Toko & Pemilihan Domain
     public function setupStep1(Request $request)
     {

@@ -36,11 +36,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     
     // Setup Profil & Billing Toko Tenant
+    Route::get('/store/me', [TokoController::class, 'me']);
     Route::post('/store/setup/step1', [TokoController::class, 'setupStep1']);
     Route::post('/store/setup/step2', [TokoController::class, 'setupStep2']);
 
     // Manajemen Konten Marketing & Dropdown
+    Route::get('/kategori', [KategoriController::class, 'index']);
     Route::post('/kategori', [KategoriController::class, 'store']);
+    Route::get('/hero', [HeroController::class, 'index']);
     Route::post('/hero', [HeroController::class, 'store']);
     Route::post('/gallery', [GalleryController::class, 'store']);
 
