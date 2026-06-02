@@ -20,7 +20,7 @@ class ProdukController extends Controller
             'harga'         => 'required|integer|min:0',
             'harga_diskon'  => 'nullable|integer|min:0|lt:harga', // Harus lebih kecil dari harga asli
             'stok'          => 'required|integer|min:0',
-            'gambar_produk' => 'required|image|mimes:jpeg,png,jpg|max:2048'
+            'gambar_produk' => 'required|image|mimes:jpeg,png,jpg|max:5120'
         ]);
 
         if ($validator->fails()) {
@@ -90,7 +90,7 @@ class ProdukController extends Controller
             'harga'         => 'required|integer|min:0',
             'harga_diskon'  => 'nullable|integer|min:0|lt:harga',
             'stok'          => 'required|integer|min:0',
-            'gambar_produk' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
+            'gambar_produk' => 'nullable|image|mimes:jpeg,png,jpg|max:5120'
         ]);
 
         if ($validator->fails()) {
