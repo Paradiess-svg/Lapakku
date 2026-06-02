@@ -10,6 +10,12 @@ use Illuminate\Support\Facades\File;
 
 class ProdukController extends Controller
 {
+    private function currentStore(Request $request)
+    {
+        return Toko::where('user_id', $request->user()->_id)->first()
+            ?: ($request->user()->store_id ? Toko::find($request->user()->store_id) : null);
+    }
+
     // 1. CREATE produk baru
     public function store(Request $request)
     {
@@ -27,7 +33,7 @@ class ProdukController extends Controller
             return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
         }
 
-        $toko = Toko::where('user_id', $request->user()->_id)->first();
+        $toko = $this->currentStore($request);
         if (!$toko) {
             return response()->json(['status' => false, 'message' => 'Setup toko dahulu'], 403);
         }
@@ -56,7 +62,7 @@ class ProdukController extends Controller
     // 2. READ ALL produk tenant
     public function index(Request $request)
     {
-        $toko = Toko::where('user_id', $request->user()->_id)->first();
+        $toko = $this->currentStore($request);
         if (!$toko) {
             return response()->json(['status' => false, 'message' => 'Toko tidak ditemukan'], 404);
         }
@@ -70,10 +76,17 @@ class ProdukController extends Controller
     }
 
     // 3. DETAIL single produk
-    public function show($id)
+    public function show(Request $request, $id)
     {
+        $toko = $this->currentStore($request);
+        if (!$toko) return response()->json(['status' => false, 'message' => 'Toko tidak ditemukan'], 404);
+
         $produk = Produk::find($id);
         if (!$produk) return response()->json(['status' => false, 'message' => 'Produk tidak ditemukan'], 404);
+        if ((string) $produk->toko_id !== (string) $toko->_id) {
+            return response()->json(['status' => false, 'message' => 'Produk bukan milik toko ini'], 403);
+        }
+
         return response()->json(['status' => true, 'data' => $produk], 200);
     }
 
@@ -82,6 +95,10 @@ class ProdukController extends Controller
     {
         $produk = Produk::find($id);
         if (!$produk) return response()->json(['status' => false, 'message' => 'Produk tidak ditemukan'], 404);
+        $toko = $this->currentStore($request);
+        if (!$toko || (string) $produk->toko_id !== (string) $toko->_id) {
+            return response()->json(['status' => false, 'message' => 'Produk bukan milik toko ini'], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'kategori_id'   => 'required|string',
@@ -120,10 +137,14 @@ class ProdukController extends Controller
     }
 
     // 5. DELETE produk
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $produk = Produk::find($id);
         if (!$produk) return response()->json(['status' => false, 'message' => 'Produk tidak ditemukan'], 404);
+        $toko = $this->currentStore($request);
+        if (!$toko || (string) $produk->toko_id !== (string) $toko->_id) {
+            return response()->json(['status' => false, 'message' => 'Produk bukan milik toko ini'], 403);
+        }
         if (File::exists(public_path($produk->gambar_produk))) File::delete(public_path($produk->gambar_produk));
         $produk->delete();
         return response()->json(['status' => true, 'message' => 'Produk berhasil dihapus'], 200);

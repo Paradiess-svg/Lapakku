@@ -10,6 +10,12 @@ use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
+    private function currentStore(Request $request)
+    {
+        return Toko::where('user_id', $request->user()->_id)->first()
+            ?: ($request->user()->store_id ? Toko::find($request->user()->store_id) : null);
+    }
+
     public function publicProducts($toko_id)
     {
         $toko = Toko::find($toko_id);
@@ -41,7 +47,7 @@ class OrderController extends Controller
         foreach ($request->items as $item) {
             $produk = Produk::find($item['produk_id']);
 
-            if (!$produk || $produk->toko_id !== $request->toko_id) {
+            if (!$produk || (string) $produk->toko_id !== (string) $request->toko_id) {
                 return response()->json(['status' => false, 'message' => 'Produk tidak cocok dengan toko ini'], 400);
             }
 
@@ -80,9 +86,18 @@ class OrderController extends Controller
         return response()->json(['status' => true, 'message' => 'Pesanan sukses dibuat!', 'data' => $order], 201);
     }
 
+    public function publicTrackOrder($toko_id, $order_id)
+    {
+        $order = Order::where('_id', $order_id)->where('toko_id', $toko_id)->first();
+        if (!$order) {
+            return response()->json(['status' => false, 'message' => 'Pesanan tidak ditemukan di toko ini'], 404);
+        }
+        return response()->json(['status' => true, 'data' => $order], 200);
+    }
+
     public function tenantOrders(Request $request)
     {
-        $toko = Toko::where('user_id', $request->user()->_id)->first();
+        $toko = $this->currentStore($request);
         if (!$toko) return response()->json(['status' => false, 'message' => 'Setup toko dahulu'], 404);
         $orders = Order::where('toko_id', $toko->_id)->get();
         return response()->json(['status' => true, 'data' => $orders], 200);
@@ -95,6 +110,10 @@ class OrderController extends Controller
         
         $order = Order::find($id);
         if (!$order) return response()->json(['status' => false, 'message' => 'Order tidak ada'], 404);
+        $toko = $this->currentStore($request);
+        if (!$toko || (string) $order->toko_id !== (string) $toko->_id) {
+            return response()->json(['status' => false, 'message' => 'Order bukan milik toko ini'], 403);
+        }
         
         $order->update(['status_pesanan' => $request->status_pesanan]);
         return response()->json(['status' => true, 'message' => 'Status berhasil diubah', 'data' => $order], 200);

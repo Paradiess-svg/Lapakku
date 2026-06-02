@@ -21,6 +21,13 @@ class Toko extends Model
         'durasi_layanan',    // 1 sampai 5 (tahun)
         'metode_pembayaran', // 'QRIS' atau 'transfer_bank'
         'bukti_pembayaran',  // nama/path file gambar bukti transfer
-        'status_pembayaran'  // 'pending', 'sukses', 'gagal'
+        'status_pembayaran', // 'pending', 'sukses', 'gagal'
+        'status_toko',       // 'pending', 'aktif', 'suspended'
+        'wa_number',
+        'instagram',
+        'email_toko',
+        'jam_operasional',
+        'theme_color',
+        'template_style'
     ];
 }

@@ -9,6 +9,23 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    private function hasShop(User $user): bool
+    {
+        return (bool) (\App\Models\Toko::where('user_id', $user->_id)->exists()
+            || ($user->store_id && \App\Models\Toko::find($user->store_id)));
+    }
+
+    private function userResource(User $user): array
+    {
+        return [
+            'id' => $user->_id,
+            'nama_lengkap' => $user->nama_lengkap,
+            'email' => $user->email,
+            'role' => $user->role ?: 'tenant',
+            'store_id' => $user->store_id
+        ];
+    }
+
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -28,7 +45,8 @@ class AuthController extends Controller
         $user = User::create([
             'nama_lengkap' => $request->nama_lengkap,
             'email' => $request->email,
-            'password' => Hash::make($request->password)
+            'password' => Hash::make($request->password),
+            'role' => 'tenant'
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -38,11 +56,7 @@ class AuthController extends Controller
             'message' => 'Registrasi berhasil',
             'data' => [
                 'token' => $token,
-                'user' => [
-                    'id' => $user->_id,
-                    'nama_lengkap' => $user->nama_lengkap,
-                    'email' => $user->email
-                ],
+                'user' => $this->userResource($user),
                 'has_shop' => false
             ]
         ], 201);
@@ -74,21 +88,27 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
-        
-// SEKARANG DINAMIS: Cek apakah user_id ini sudah punya record di collection tokos
-        $hasShop = \App\Models\Toko::where('user_id', $user->_id)->exists();
 
         return response()->json([
             'status' => true,
             'message' => 'Login berhasil',
             'data' => [
                 'token' => $token,
-                'user' => [
-                    'id' => $user->_id,
-                    'nama_lengkap' => $user->nama_lengkap,
-                    'email' => $user->email
-                ],
-                'has_shop' => $hasShop
+                'user' => $this->userResource($user),
+                'has_shop' => $this->hasShop($user)
+            ]
+        ], 200);
+    }
+
+    public function me(Request $request)
+    {
+        $user = $request->user();
+
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'user' => $this->userResource($user),
+                'has_shop' => $this->hasShop($user)
             ]
         ], 200);
     }

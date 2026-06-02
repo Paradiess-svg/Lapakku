@@ -10,9 +10,15 @@ use Illuminate\Support\Facades\File;
 
 class KategoriController extends Controller
 {
+    private function currentStore(Request $request)
+    {
+        return Toko::where('user_id', $request->user()->_id)->first()
+            ?: ($request->user()->store_id ? Toko::find($request->user()->store_id) : null);
+    }
+
     public function index(Request $request)
     {
-        $toko = Toko::where('user_id', $request->user()->_id)->first();
+        $toko = $this->currentStore($request);
 
         if (!$toko) {
             return response()->json(['status' => false, 'message' => 'Setup toko dahulu'], 404);
@@ -34,7 +40,7 @@ class KategoriController extends Controller
             return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
         }
 
-        $toko = Toko::where('user_id', $request->user()->_id)->first();
+        $toko = $this->currentStore($request);
         if (!$toko) {
             return response()->json(['status' => false, 'message' => 'Setup toko dahulu'], 403);
         }
@@ -61,4 +67,30 @@ class KategoriController extends Controller
         $kategori = Kategori::where('toko_id', $toko_id)->get();
         return response()->json(['status' => true, 'data' => $kategori], 200);
     }
+
+    // Tenant: Hapus Kategori
+    public function destroy(Request $request, $id)
+    {
+        $kategori = Kategori::find($id);
+        if (!$kategori) {
+            return response()->json(['status' => false, 'message' => 'Kategori tidak ditemukan'], 404);
+        }
+
+        $toko = $this->currentStore($request);
+        if (!$toko || (string) $kategori->toko_id !== (string) $toko->_id) {
+            return response()->json(['status' => false, 'message' => 'Kategori bukan milik toko ini'], 403);
+        }
+
+        if ($kategori->foto_icon && File::exists(public_path($kategori->foto_icon))) {
+            File::delete(public_path($kategori->foto_icon));
+        }
+
+        $kategori->delete();
+
+        // Nullify kategori_id di produk yang memiliki kategori ini agar tidak terasosiasi lagi
+        \App\Models\Produk::where('kategori_id', $id)->update(['kategori_id' => '']);
+
+        return response()->json(['status' => true, 'message' => 'Kategori berhasil dihapus'], 200);
+    }
 }
+

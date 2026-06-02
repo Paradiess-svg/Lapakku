@@ -9,9 +9,15 @@ use Illuminate\Support\Facades\Validator;
 
 class HeroController extends Controller
 {
+    private function currentStore(Request $request)
+    {
+        return Toko::where('user_id', $request->user()->_id)->first()
+            ?: ($request->user()->store_id ? Toko::find($request->user()->store_id) : null);
+    }
+
     public function index(Request $request)
     {
-        $toko = Toko::where('user_id', $request->user()->_id)->first();
+        $toko = $this->currentStore($request);
 
         if (!$toko) {
             return response()->json(['status' => false, 'message' => 'Setup toko dahulu'], 404);
@@ -35,7 +41,7 @@ class HeroController extends Controller
             return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
         }
 
-        $toko = Toko::where('user_id', $request->user()->_id)->first();
+        $toko = $this->currentStore($request);
         if (!$toko) {
             return response()->json(['status' => false, 'message' => 'Setup toko dahulu'], 403);
         }
